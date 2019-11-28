@@ -1,0 +1,97 @@
+package main 
+
+import (
+	"fmt"
+	"encoding/json"
+	"log"
+	"net"
+)
+const local = "localhost:400"
+
+var chRecord chan map[string]bool
+
+
+func EnviarSinRespuesta(msg string , target string){
+	if conn, err := net.Dial("tcp",target); err != nil{
+		log.Println("Can't dial", target)
+	} else{
+		defer conn.Close()
+		fmt.Fprintln(conn,msg)
+	}
+}
+
+func ServidorAgregador(){
+	host := fmt.Sprintf("%s1",local)
+	ln, _ := net.Listen("tcp",host)
+	defer ln.Close()
+	for{
+		conn, _ := ln.Accept()
+		r := bufio.NewReader(conn)
+		hostname, _ := r.ReadString('\n')
+		fmt.Print("Recibimos el hostname: ", hostname)
+		addNodo(hostname)
+	}
+}
+
+func ClienteAgregador(nuevonodo string){
+	var nodos <- chRecord
+	for _, key := range nodos {
+		target := fmt.Sprintf("%s1",key)
+		EnviarSinRespuesta(nuevonodo,target)
+	} 
+}
+
+func EnviarConRespuesta(msg, target string){
+
+}
+
+func ServidorRegistrador(){
+	host := fmt.Sprintf("%s2",local)
+	ln, _ := net.Listen("tcp",host)
+	defer ln.Close()
+	for{
+		conn, _ := ln.Accept()
+		r := bufio.NewReader(conn)
+		hostname, _ := r.ReadString('\n')
+		var nodos = chRecord
+		enc := json.NewEncoder(conn)
+		fmt.Println("Enviando ",hostname,nodos)
+		enc.Encode(nodos)
+		ClienteAgregador(hostname)
+		addNodo(hostname)
+	}
+}
+
+func ClienteRegistrador(servername string){
+	target := fmt.Sprintf("%s2",servername)
+	conn, _ := net.Dial("tcp",target)
+	defer conn.Close()
+	fmt.Fprintln(local)
+
+	dec := json.NewDecoder(conn)
+	var nodos map[string]bool
+	if err :=dec.Decode(nodos); err != nil{
+		log.Println("Can't understand", conn.RemoteAddr())
+	} else {
+		for _, key := range nodos {
+		target := fmt.Sprintf("%s1",key)
+		EnviarSinRespuesta(nuevonodo,target)
+	} 
+	}
+
+}
+func addNodo(hostname string){
+	record := <- chRecord
+	record[hostname]=true
+	chRecord <- record
+}
+func main(){
+	go ServidorAgregador()
+	go ServidorRegistrador()
+	var servername string
+	fmt.Println("A que servidor desea conectarse: ")
+	fmt.Scanln(servername)
+	ClienteRegistrador(servername)
+
+
+}
